@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,6 +13,7 @@ public class GameManager : MonoBehaviour
     public List<Cake> cakes = new List<Cake>();
     public int cakeLimit = 2;
     public int muncherLimit = 3;
+    public int muncherLimitInternal;
 
     private List<GameObject> activeMunchers = new List<GameObject>();
     private List<Cake> activeCakes = new List<Cake>();
@@ -22,8 +24,11 @@ public class GameManager : MonoBehaviour
     public Text gameOverText;
     public Text scoreText;
     public Text highscoreText;
+    public Text helpText;
+    public Text headlineText;
     private int score = 0;
-    private bool gameOver = false;
+    public bool gameOver = false;
+    public bool gameRunning = false;
 
     private void Awake()
     {
@@ -44,37 +49,52 @@ public class GameManager : MonoBehaviour
             highscoreText.text = "Highscore: " + ScoreHolder.highscore;
             highscoreText.gameObject.SetActive(true);
         }
-	}
+        muncherLimitInternal = muncherLimit;
+
+    }
 	
 	// Update is called once per frame
 	void Update () {
-        if(activeMunchers.Count < muncherLimit && !spawningMunchers)
+        if(gameRunning)
         {
-            spawningMunchers = true;
-            StartCoroutine(SpawnMunchers(muncherLimit - activeMunchers.Count));
-            spawningMunchers = false;
-        }
+            muncherLimitInternal = muncherLimit + (int)(score / 1500);
 
-        if (activeCakes.Count < cakeLimit && !spawningCakes)
-        {
-            spawningCakes = true;
-            StartCoroutine(SpawnCakes(cakeLimit - activeCakes.Count));
-            spawningCakes = false;
-        }
-
-        if(!gameOver)
-        {
-            IncreaseScore(1);
-
-            if (World.Instance.CakeHealth > 0)
+            if (activeMunchers.Count < muncherLimitInternal && !spawningMunchers)
             {
-                worldHpText.text = "Cake-Health: " + World.Instance.CakeHealth + "%";
+                spawningMunchers = true;
+                StartCoroutine(SpawnMunchers(muncherLimitInternal - activeMunchers.Count));
+                spawningMunchers = false;
             }
-            else
+
+            if (activeCakes.Count < cakeLimit && !spawningCakes)
             {
-                StartCoroutine(GameOver());
+                spawningCakes = true;
+                StartCoroutine(SpawnCakes(cakeLimit - activeCakes.Count));
+                spawningCakes = false;
+            }
+
+            if (!gameOver)
+            {
+                IncreaseScore(1);
+
+                if (World.Instance.CakeHealth > 0)
+                {
+                    worldHpText.text = "Cookie-Health: " + (int)World.Instance.CakeHealth;
+                }
+                else
+                {
+                    GameOver();
+                }
             }
         }
+    }
+
+    internal void StartGame()
+    {
+        gameRunning = true;
+        gameOverText.gameObject.SetActive(false);
+        headlineText.gameObject.SetActive(false);
+        helpText.gameObject.SetActive(true);
     }
 
     public void IncreaseScore(int scoreIncrease)
@@ -83,23 +103,23 @@ public class GameManager : MonoBehaviour
         scoreText.text = "Score: " + score;
     }
 
-    IEnumerator GameOver()
+    void GameOver()
     {
-        worldHpText.text = "Cake-Health: 0%";
+        headlineText.text = "Game Over";
+        worldHpText.text = "Cookie-Health: 0";
         scoreText.gameObject.SetActive(false);
         gameOver = true;
         if(ScoreHolder.highscore < score)
         {
             ScoreHolder.highscore = score;
-            gameOverText.text = "Game Over, New Highscore: " + score + " Points";
+            gameOverText.text = "New Highscore: " + score + " Points\n" + "Press Enter to go back to the menu";
         }
         else
         {
-            gameOverText.text = "Game Over Score: " + score + " Points";
+            gameOverText.text = "Score: " + score + " Points\n" + "Press Enter to go back to the menu";
         }
         gameOverText.gameObject.SetActive(true);
-        yield return new WaitForSeconds(10);
-        SceneManager.LoadScene(0);
+        headlineText.gameObject.SetActive(true);
     }
 
     IEnumerator SpawnMunchers(int count)
@@ -122,7 +142,7 @@ public class GameManager : MonoBehaviour
 
     void SpawnMuncher()
     {
-        GameObject muncher = munchers[Random.Range(0, munchers.Count)];
+        GameObject muncher = munchers[UnityEngine.Random.Range(0, munchers.Count)];
 
         GameObject newMuncher = Instantiate(muncher);
         newMuncher.transform.position = randomMuncherPosition();
@@ -133,14 +153,14 @@ public class GameManager : MonoBehaviour
 
     void SpawnCake()
     {
-        Cake cake = cakes[Random.Range(0, cakes.Count)];
+        Cake cake = cakes[UnityEngine.Random.Range(0, cakes.Count)];
 
         Cake newCake = Instantiate(cake);
         Vector3 cakePosition = randomCakePosition();
         newCake.transform.position = cakePosition;
         var heading = World.Instance.transform.position - cakePosition;
         newCake.direction = heading.normalized;
-        newCake.direction.Scale(new Vector2(Random.Range(0.05f, 0.2f), Random.Range(0.05f, 0.2f)));
+        newCake.direction.Scale(new Vector2(UnityEngine.Random.Range(0.05f, 0.2f), UnityEngine.Random.Range(0.05f, 0.2f)));
 
         activeCakes.Add(newCake);
     }
@@ -148,6 +168,7 @@ public class GameManager : MonoBehaviour
 
     public void RemoveMuncher(GameObject muncher)
     {
+        World.Instance.MuncherDead(muncher);
         muncher.SetActive(false);
         activeMunchers.Remove(muncher);
         Destroy(muncher);
@@ -165,8 +186,8 @@ public class GameManager : MonoBehaviour
         Vector3 worldPosition = World.Instance.transform.position;
         Vector3 worldSize = World.Instance.GetComponent<Renderer>().bounds.size;
 
-        worldPosition.x +=  (Random.Range(0,2) == 0 ? 1 : -1) * (Random.Range(20, 50) + worldSize.x);
-        worldPosition.y +=  (Random.Range(0,2) == 0 ? 1 : -1) * (Random.Range(20, 50) + worldSize.y);
+        worldPosition.x +=  (UnityEngine.Random.Range(0,2) == 0 ? 1 : -1) * (UnityEngine.Random.Range(5, 30) + worldSize.x);
+        worldPosition.y +=  (UnityEngine.Random.Range(0,2) == 0 ? 1 : -1) * (UnityEngine.Random.Range(5, 30) + worldSize.y);
 
         return worldPosition;
     }
@@ -176,8 +197,8 @@ public class GameManager : MonoBehaviour
         Vector3 worldPosition = World.Instance.transform.position;
         Vector3 worldSize = World.Instance.GetComponent<Renderer>().bounds.size;
 
-        worldPosition.x += (Random.Range(0, 2) == 0 ? 1 : -1) * (Random.Range(5, 10) + worldSize.x);
-        worldPosition.y += (Random.Range(0, 2) == 0 ? 1 : -1) * (Random.Range(5, 10) + worldSize.y);
+        worldPosition.x += (UnityEngine.Random.Range(0, 2) == 0 ? 1 : -1) * (UnityEngine.Random.Range(5, 10) + worldSize.x);
+        worldPosition.y += (UnityEngine.Random.Range(0, 2) == 0 ? 1 : -1) * (UnityEngine.Random.Range(5, 10) + worldSize.y);
 
         return worldPosition;
     }

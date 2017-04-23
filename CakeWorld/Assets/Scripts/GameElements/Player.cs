@@ -5,6 +5,8 @@ using UnityEngine;
 public class Player : GravityBody {
     public float speed = 20;
     public float jumpingHeight = 2;
+    public List<AudioClip> jumpSounds = new List<AudioClip>();
+    public List<AudioClip> eatingSounds= new List<AudioClip>();
     public Vector2 jumpDampening = new Vector2(0.01f, 0.15f);
     private Vector2 moveDir;
     private bool canJump = true;
@@ -45,14 +47,12 @@ public class Player : GravityBody {
         {
             canJump = false;
 
-            if(moveDir.y > 0 || moveDir.x > 0)
-            {
-                jumping = true;
-                jumpXStart = moveDir.x;
-                jumpYStart = moveDir.y * jumpingHeight;
-                jumpX = jumpXStart;
-                jumpY = jumpYStart;
-            }
+            AudioSource.PlayClipAtPoint(jumpSounds[Random.Range(0, jumpSounds.Count)], transform.position);
+            jumping = true;
+            jumpXStart = moveDir.x;
+            jumpYStart = moveDir.y * jumpingHeight;
+            jumpX = jumpXStart;
+            jumpY = jumpYStart;
         }
     }
 
@@ -67,9 +67,10 @@ public class Player : GravityBody {
             Cake cake = coll.gameObject.GetComponent<Cake>();
             World.Instance.IncreaseSize(cake.growthFactor);
             GameManager.Instance.RemoveCake(coll.gameObject);
+            AudioSource.PlayClipAtPoint(eatingSounds[Random.Range(0, eatingSounds.Count)], transform.position);
         }
     }
-
+    
     // Update is called once per frame
     public void FixedUpdate()
     {
@@ -82,7 +83,13 @@ public class Player : GravityBody {
             GetComponent<SpriteRenderer>().flipX = true;
         }
 
-        if (jumping)
+        
+        if ((moveDir.x != 0 || moveDir.y != 0) && canJump)
+        {
+            moveDir.y = moveDir.y * jumpingHeight;
+            body.MovePosition(body.position + (Vector2)transform.TransformDirection(moveDir) * speed * Time.deltaTime);
+        }
+        else if(jumping)
         {
             if (jumpXStart > 0)
             {
@@ -101,11 +108,8 @@ public class Player : GravityBody {
                 jumpY = jumpY + jumpDampening.y;
             }
             body.MovePosition(body.position + (Vector2)transform.TransformDirection(new Vector2(jumpX, jumpY)) * speed * Time.deltaTime);
-            Debug.DrawLine(body.position, body.position + (Vector2)transform.TransformDirection(new Vector2(jumpX, jumpY)) * speed * Time.deltaTime);
-        } else if ((moveDir.x != 0 || moveDir.y != 0) && canJump)
-        {
-            moveDir.y = moveDir.y * jumpingHeight;
-            body.MovePosition(body.position + (Vector2)transform.TransformDirection(moveDir) * speed * Time.deltaTime);
         }
+        // Force to keep player closer
+        body.AddForce((World.Instance.transform.position - transform.position) * 30);
     }
 }

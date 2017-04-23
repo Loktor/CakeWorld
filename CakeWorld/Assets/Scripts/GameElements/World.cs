@@ -9,6 +9,7 @@ public class World : GravityAttractor {
     public static World Instance { get { return _instance; } }
 
     private List<GameObject> collidingObjects = new List<GameObject>();
+    int muncherCount = 0;
 
     private void Awake()
     {
@@ -26,33 +27,34 @@ public class World : GravityAttractor {
     {
         get
         {
-            return (100.0f + (100.0f - (1.5f * 100.0f / World.Instance.transform.localScale.x)));
+            return (100.0f + (100.0f - (100.0f / World.Instance.transform.localScale.x)));
         }
     }
 
-    void OnCollisionEnter2D(Collision2D coll)
+    private void OnCollisionStay2D(Collision2D collision)
     {
-        if(!collidingObjects.Contains(coll.gameObject) && coll.gameObject.tag == "Muncher")
+        if(collision.gameObject.tag == "Muncher")
         {
-            collidingObjects.Add(coll.gameObject);
+            muncherCount++;
         }
     }
 
-    void OnCollisionExit2D(Collision2D coll)
+    public void MuncherDead(GameObject gameObject)
     {
-        if (collidingObjects.Contains(coll.gameObject))
+        if (collidingObjects.Contains(gameObject))
         {
-            collidingObjects.Remove(coll.gameObject);
+            collidingObjects.Remove(gameObject);
         }
     }
 
     // Update is called once per frame
     void Update () {
-		if(collidingObjects.Count > 0)
+		if(muncherCount > 0)
         {
-            DecreaseSize(collidingObjects.Count);
+            DecreaseSize(muncherCount * 4);
         }
-	}
+        muncherCount = 0;
+    }
 
     public void DecreaseSize(int factor)
     {
